@@ -798,26 +798,113 @@ def send_menu(chat_id):
     }
     send_message(chat_id, '📍 Меню:', keyboard)
 
-def send_level_menu(chat_id):
-    level = get_level(chat_id)
-    desc = {'A1': 'Начинающий', 'A2': 'Элементарный', 'B1': 'Средний',
-            'B2': 'Выше среднего', 'C1': 'Продвинутый'}
+def process_callback(callback_query):
+    chat_id = str(callback_query['message']['chat']['id'])
+    data = callback_query['data']
+    msg_id = callback_query['message']['message_id']
     
-    keyboard = {'inline_keyboard': [
-        [{'text': f"{l} {desc[l]}{' ✅' if level == l else ''}", 'callback_data': f'level_{l}'}]
-        for l in ['A1', 'A2', 'B1', 'B2', 'C1']
-    ]}
-    send_message(chat_id, f"🎯 Твой уровень: *{level}* — {desc[level]}", keyboard)
+    if data == 'more_words':
+        send_words(chat_id)
+    elif data.startswith('quiz_'):
+        parts = data.split('_')
+        correct = parts[1]
+        user_answer = parts[2]
+        test = user_test.get(chat_id)
+        if test:
+            if user_answer == correct:
+                test['correct'] += 1
+                text = '✅ Правильно!'
+                add_points(chat_id, 2)
+            else:
+                text = f'❌ Ответ: {correct}'
+            test['index'] += 1
+            requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': text})
+            send_next_question(chat_id)
+    elif data.startswith('level_'):
+        # Старая логика (удалить или оставить для совместимости)
+        level = data.replace('level_', '')
+        if level in LEVEL_PASSED.get(chat_id, ['A1']):
+            user_levels[chat_id] = level
+            requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': f'✅ Уровень: {level}'})
+    elif data.startswith('setlevel_'):
+        lvl = data.replace('setlevel_', '')
+        user_levels[chat_id] = lvl
+        requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': f'✅ Уровень изменён на {lvl}'})
+    elif data.startswith('trylevel_'):
+        lvl = data.replace('trylevel_', '')
+        send_level_test(chat_id, lvl)
+        requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': f'Начинаю тест на уровень {lvl}...'})
+    elif data.startswith('leveltest_'):
+        process_level_test_answer(chat_id, data, msg_id)
+    elif data == 'locked':
+        requests.post(f'{BASE_URL}/answerCallbackQuery', json={'callback_query_id': callback_query['id'], 'text': '🔒 Этот уровень ещё не открыт!', 'show_alert': True})
+    elif data.startswith('grammar_'):
+        topic = data.replace('grammar_', '')
+        text = GRAMMAR.get(topic, 'Тема не найдена')
+        requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': f'📝 *{topic}*\n\n{text}'})
+    elif data.startswith('review_show_'):
+        card = user_review_cards.get(chat_id)
+        if card:
+            en, ru = card[0], card[1]
+            add_points(chat_id, 1)
+            requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': f'🔁 {en} = *{ru}*\n\n+1 очко!'})
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    data = request.json
-    if 'callback_query' in data:
-        process_callback(data['callback_query'])
-    elif 'message' in data:
-        process_message(data['message'])
-    return 'ok', 200
+# ===== СИСТЕМА УРОВНЕЙ =====
+LEVEL_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1']
+LEVEL_TESTS = {}
+LEVEL_PASSED = {}
 
+def send_level_test(chat_id, level):
+    words = WORDS[level]['words']
+    if len(words) < 10:
+        send_message(chat_id, 'Недостаточно слов для теста.')
+        return
+    test_words = random.sample(words, 10)
+    LEVEL_TESTS[chat_id] = {'level': level, 'words': test_words, 'index': 0, 'correct': 0}
+    send_level_question(chat_id)
+
+def send_level_question(chat_id):
+    test = LEVEL_TESTS.get(chat_id)
+    if not test:
+        return
+    if test['index'] >= 10:
+        correct = test['correct']
+        level = test['level']
+        if correct >= 8:
+            if level not in LEVEL_PASSED.get(chat_id, []):
+                LEVEL_PASSED.setdefault(chat_id, ['A1']).append(level)
+            user_levels[chat_id] = level
+            send_message(chat_id, f'🎉 Уровень {level} пройден! ✅ {correct}/10')
+        else:
+            send_message(chat_id, f'😔 Не сдал. {correct}/10. Нужно 8/10.')
+        del LEVEL_TESTS[chat_id]
+        return
+    word = test['words'][test['index']]
+    all_words = WORDS[test['level']]['words']
+    options = [word[1]]
+    while len(options) < 4:
+        r = random.choice(all_words)[1]
+        if r not in options:
+            options.append(r)
+    random.shuffle(options)
+    keyboard = {'inline_keyboard': [[{'text': opt, 'callback_data': f'leveltest_{word[1]}_{opt}'}] for opt in options]}
+    send_message(chat_id, f"📝 Уровень {test['level']} ({test['index']+1}/10)\n*{word[0]}*", keyboard)
+
+def process_level_test_answer(chat_id, data, msg_id):
+    parts = data.split('_')
+    correct = parts[1]
+    user_answer = parts[2]
+    test = LEVEL_TESTS.get(chat_id)
+    if not test:
+        return
+    if user_answer == correct:
+        test['correct'] += 1
+        text = '✅'
+    else:
+        text = f'❌ {correct}'
+    test['index'] += 1
+    requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': text})
+    send_level_question(chat_id)
 @app.route('/')
 def home():
     return 'English Bot is running!'
