@@ -786,7 +786,20 @@ def send_review(chat_id):
         {'text': 'Показать перевод', 'callback_data': f'review_show_{chat_id}'}
     ]]}
     send_message(chat_id, f'🔁 *Повторение*\n\nСлово: *{en}*\n\nВспомни перевод и нажми кнопку.', keyboard)
-
+def send_level_menu(chat_id):
+    current = get_level(chat_id)
+    passed = LEVEL_PASSED.get(chat_id, ['A1'])
+    desc = {'A1':'Начинающий','A2':'Элементарный','B1':'Средний','B2':'Выше среднего','C1':'Продвинутый'}
+    keyboard = {'inline_keyboard': []}
+    for i, lvl in enumerate(LEVEL_ORDER):
+        if lvl in passed:
+            mark = ' ✅' if lvl == current else ''
+            keyboard['inline_keyboard'].append([{'text': f'{lvl} {desc[lvl]}{mark}', 'callback_data': f'setlevel_{lvl}'}])
+        elif i > 0 and LEVEL_ORDER[i-1] in passed:
+            keyboard['inline_keyboard'].append([{'text': f'📝 Сдать на {lvl}', 'callback_data': f'trylevel_{lvl}'}])
+        else:
+            keyboard['inline_keyboard'].append([{'text': f'🔒 {lvl} {desc[lvl]}', 'callback_data': 'locked'}])
+    send_message(chat_id, f'🎯 Твой уровень: *{current}*', keyboard)
 # ===== НАПОМИНАНИЯ =====
 def check_reminders():
     """Вызывается раз в час через внешний сервис (cron-job.org)"""
