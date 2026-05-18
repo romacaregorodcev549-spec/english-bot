@@ -465,11 +465,27 @@ def send_message(chat_id, text, reply_markup=None):
 
 def send_photo(chat_id):
     level = get_level(chat_id)
+    words = WORDS[level]['words']
+    if not words:
+        send_message(chat_id, 'Нет слов для показа.')
+        return
+    
+    word = random.choice(words)
     pics = WORDS[level]['pics']
     url = random.choice(pics)
+    
+    user_review_cards[chat_id] = word
+    
+    keyboard = {'inline_keyboard': [[
+        {'text': 'Показать перевод', 'callback_data': f'review_show_{chat_id}'}
+    ]]}
+    
     requests.post(f'{BASE_URL}/sendPhoto', json={
-        'chat_id': chat_id, 'photo': url,
-        'caption': f'🖼 Опиши картинку на английском (уровень {level})'
+        'chat_id': chat_id,
+        'photo': url,
+        'caption': f'🖼 *{word[0]}*\n\nВспомни перевод и нажми кнопку',
+        'parse_mode': 'Markdown',
+        'reply_markup': keyboard
     })
 
 def send_words(chat_id):
@@ -649,8 +665,8 @@ def process_message(msg):
         send_test(chat_id)
     elif text in ['📖 Текст', '/text']:
         send_text(chat_id)
-    elif text in ['🖼 Картинки', '/pic']:
-        send_photo(chat_id)
+    elif text in ['🖼 Карточки', '/pic']:
+    send_photo(chat_id)
     elif text in ['📖 Словарь', '/dict']:
         send_dictionary(chat_id)
     elif text in ['🎯 Уровень', '/level']:
@@ -808,7 +824,7 @@ def send_menu(chat_id):
     keyboard = {
         'keyboard': [
             [{'text': '📚 Слова'}, {'text': '📝 Тест'}],
-            [{'text': '📖 Текст'}, {'text': '🖼 Картинки'}],
+            [{'text': '📖 Текст'}, {'text': '🖼 Карточки'}],
             [{'text': '📖 Словарь'}, {'text': '🎯 Уровень'}],
             [{'text': '🎮 Прогресс'}, {'text': '📝 Грамматика'}],
             [{'text': '🎧 Диктант'}, {'text': '🔁 Повторение'}],
