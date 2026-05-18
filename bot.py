@@ -5,7 +5,6 @@ from flask import Flask, request
 import requests
 import asyncio
 import tempfile
-import os
 import edge_tts
 
 app = Flask(__name__)
@@ -744,9 +743,6 @@ def send_grammar(chat_id):
     send_message(chat_id, '📝 *Грамматика*\nВыбери тему:', keyboard)
 
 # ===== ДИКТАНТ =====
-import asyncio
-import tempfile
-import os
 
 def send_dictation(chat_id):
     level = get_level(chat_id)
@@ -758,32 +754,18 @@ def send_dictation(chat_id):
     user_last_text[chat_id] = en
     user_state[chat_id] = 'waiting_dictation'
     
-    # Генерируем голосовое сообщение
+    # Google Translate TTS — бесплатно и без API-ключа
+    tts_url = f'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q={requests.utils.quote(en)}'
+    
     try:
-        # Создаём временный файл
-        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
-            mp3_path = f.name
-        
-        # Запускаем edge-tts
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        async def generate():
-            communicate = edge_tts.Communicate(en, 'en-US-JennyNeural')
-            await communicate.save(mp3_path)
-        
-        loop.run_until_complete(generate())
-        loop.close()
-        
-        # Отправляем голосовое
-        with open(mp3_path, 'rb') as audio:
-            requests.post(f'{BASE_URL}/sendVoice', files={'voice': audio}, data={'chat_id': chat_id, 'caption': '🎧 Напиши перевод!'})
-        
-        # Удаляем временный файл
-        os.unlink(mp3_path)
-        
-    except Exception as e:
-        # Если голос не сработал — отправляем текстом
+        response = requests.get(tts_url)
+        if response.status_code == 200:
+            # Отправляем как голосовое
+            files = {'voice': ('audio.mp3', response.content, 'audio/mpeg')}
+            requests.post(f'{BASE_URL}/sendVoice', files=files, data={'chat_id': chat_id, 'caption': '🎧 Напиши перевод!'})
+        else:
+            send_message(chat_id, f'🎧 *Диктант*\nНапиши: _{en}_')
+    except:
         send_message(chat_id, f'🎧 *Диктант*\nНапиши: _{en}_')
 
 # ===== ИНТЕРВАЛЬНЫЕ ПОВТОРЕНИЯ =====
