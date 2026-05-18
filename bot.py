@@ -9,49 +9,92 @@ app = Flask(__name__)
 TOKEN = '8609800555:AAGO33Tub9bYSxskT92HWGvYdASaFWzW5Gs'
 BASE_URL = f'https://api.telegram.org/bot{TOKEN}'
 
-# База знаний
+# Состояние пользователей
+user_state = {}  # 'waiting_translation' или None
+user_last_text = {}  # последний текст для проверки перевода
+user_levels = {}
+user_test = {}  # данные теста
+
 WORDS = {
     'A1': {
         'words': [
             ('apple', 'яблоко', 'Еда'), ('bread', 'хлеб', 'Еда'), ('water', 'вода', 'Еда'),
             ('milk', 'молоко', 'Еда'), ('egg', 'яйцо', 'Еда'), ('fish', 'рыба', 'Еда'),
+            ('meat', 'мясо', 'Еда'), ('rice', 'рис', 'Еда'), ('soup', 'суп', 'Еда'),
             ('cat', 'кот', 'Животные'), ('dog', 'собака', 'Животные'), ('bird', 'птица', 'Животные'),
-            ('house', 'дом', 'Дом'), ('table', 'стол', 'Дом'), ('chair', 'стул', 'Дом'),
-            ('book', 'книга', 'Учёба'), ('car', 'машина', 'Транспорт'), ('bus', 'автобус', 'Транспорт'),
-            ('red', 'красный', 'Цвета'), ('blue', 'синий', 'Цвета'), ('green', 'зелёный', 'Цвета'),
-            ('big', 'большой', 'Прил'), ('small', 'маленький', 'Прил'), ('good', 'хороший', 'Прил'),
+            ('house', 'дом', 'Дом'), ('room', 'комната', 'Дом'), ('door', 'дверь', 'Дом'),
+            ('window', 'окно', 'Дом'), ('table', 'стол', 'Дом'), ('chair', 'стул', 'Дом'),
+            ('bed', 'кровать', 'Дом'), ('book', 'книга', 'Учёба'), ('pen', 'ручка', 'Учёба'),
+            ('car', 'машина', 'Транспорт'), ('bus', 'автобус', 'Транспорт'), ('train', 'поезд', 'Транспорт'),
+            ('bike', 'велосипед', 'Транспорт'), ('red', 'красный', 'Цвета'), ('blue', 'синий', 'Цвета'),
+            ('green', 'зелёный', 'Цвета'), ('yellow', 'жёлтый', 'Цвета'), ('white', 'белый', 'Цвета'),
+            ('black', 'чёрный', 'Цвета'), ('big', 'большой', 'Прил'), ('small', 'маленький', 'Прил'),
+            ('good', 'хороший', 'Прил'), ('bad', 'плохой', 'Прил'), ('new', 'новый', 'Прил'),
+            ('old', 'старый', 'Прил'), ('hot', 'горячий', 'Прил'), ('cold', 'холодный', 'Прил'),
             ('friend', 'друг', 'Люди'), ('family', 'семья', 'Люди'), ('mother', 'мама', 'Люди'),
-            ('father', 'папа', 'Люди'), ('time', 'время', 'Общее'), ('day', 'день', 'Общее'),
-            ('sun', 'солнце', 'Природа'), ('moon', 'луна', 'Природа'), ('star', 'звезда', 'Природа')
+            ('father', 'папа', 'Люди'), ('brother', 'брат', 'Люди'), ('sister', 'сестра', 'Люди'),
+            ('time', 'время', 'Общее'), ('day', 'день', 'Общее'), ('night', 'ночь', 'Общее'),
+            ('morning', 'утро', 'Общее'), ('week', 'неделя', 'Общее'), ('year', 'год', 'Общее'),
+            ('sun', 'солнце', 'Природа'), ('moon', 'луна', 'Природа'), ('star', 'звезда', 'Природа'),
+            ('tree', 'дерево', 'Природа'), ('flower', 'цветок', 'Природа'), ('rain', 'дождь', 'Природа')
         ],
         'phrases': [
-            ('Hello', 'Привет'), ('Good morning', 'Доброе утро'), ('How are you?', 'Как дела?'),
-            ('Thank you', 'Спасибо'), ('I like it', 'Мне нравится')
+            ('Hello, how are you?', 'Привет, как дела?'),
+            ('Good morning', 'Доброе утро'),
+            ('Good night', 'Спокойной ночи'),
+            ('Thank you very much', 'Большое спасибо'),
+            ('My name is John', 'Меня зовут Джон'),
+            ('I like pizza', 'Мне нравится пицца'),
+            ('Where is the shop?', 'Где магазин?'),
+            ('I have a cat', 'У меня есть кот'),
+            ('See you later', 'Увидимся позже'),
+            ('Nice to meet you', 'Приятно познакомиться')
         ],
         'texts': [
-            'My name is Tom. I am 10 years old. I have a cat. I love my family.',
-            'I wake up at 7. I eat breakfast. I go to school. I like school.'
+            ('My Day', 'I wake up at 7. I eat breakfast. I go to school. I like school. I come home at 3. I play with friends. I go to bed at 9.', 'Я просыпаюсь в 7. Я завтракаю. Я иду в школу. Мне нравится школа. Я прихожу домой в 3. Я играю с друзьями. Я ложусь спать в 9.'),
+            ('My Family', 'My name is Tom. I am 10 years old. I have a small family: mother, father, and a cat. My cat is black and white. I love my family.', 'Меня зовут Том. Мне 10 лет. У меня маленькая семья: мама, папа и кот. Мой кот чёрно-белый. Я люблю свою семью.')
+        ],
+        'pics': [
+            'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400',  # еда
+            'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=400',  # кот
+            'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400',  # дом
+            'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400',  # море
+            'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=400',  # природа
+            'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=400',  # горы
         ]
     },
     'A2': {
         'words': [
-            ('market', 'рынок', 'Еда'), ('sugar', 'сахар', 'Еда'), ('vegetable', 'овощ', 'Еда'),
-            ('fruit', 'фрукт', 'Еда'), ('chicken', 'курица', 'Еда'), ('weather', 'погода', 'Природа'),
-            ('snow', 'снег', 'Природа'), ('river', 'река', 'Природа'), ('mountain', 'гора', 'Природа'),
+            ('market', 'рынок', 'Еда'), ('sugar', 'сахар', 'Еда'), ('salt', 'соль', 'Еда'),
+            ('vegetable', 'овощ', 'Еда'), ('fruit', 'фрукт', 'Еда'), ('chicken', 'курица', 'Еда'),
+            ('dinner', 'ужин', 'Еда'), ('breakfast', 'завтрак', 'Еда'), ('lunch', 'обед', 'Еда'),
+            ('weather', 'погода', 'Природа'), ('snow', 'снег', 'Природа'), ('wind', 'ветер', 'Природа'),
+            ('river', 'река', 'Природа'), ('mountain', 'гора', 'Природа'), ('sea', 'море', 'Природа'),
             ('hospital', 'больница', 'Город'), ('shop', 'магазин', 'Город'), ('bank', 'банк', 'Город'),
-            ('clothes', 'одежда', 'Одежда'), ('shirt', 'рубашка', 'Одежда'), ('dress', 'платье', 'Одежда'),
+            ('park', 'парк', 'Город'), ('bridge', 'мост', 'Город'), ('clothes', 'одежда', 'Одежда'),
+            ('shirt', 'рубашка', 'Одежда'), ('dress', 'платье', 'Одежда'), ('shoes', 'обувь', 'Одежда'),
             ('music', 'музыка', 'Развл'), ('film', 'фильм', 'Развл'), ('sport', 'спорт', 'Развл'),
             ('work', 'работа', 'Работа'), ('office', 'офис', 'Работа'), ('money', 'деньги', 'Работа'),
             ('cheap', 'дешёвый', 'Прил'), ('expensive', 'дорогой', 'Прил'), ('happy', 'счастливый', 'Прил'),
             ('sad', 'грустный', 'Прил'), ('hungry', 'голодный', 'Прил'), ('tired', 'уставший', 'Прил')
         ],
         'phrases': [
-            ('What time is it?', 'Который час?'), ('How much?', 'Сколько стоит?'),
-            ('Can you help?', 'Можете помочь?'), ('in my opinion', 'по моему мнению')
+            ('What time is it?', 'Который час?'),
+            ('How much is it?', 'Сколько это стоит?'),
+            ('I would like a coffee', 'Я бы хотел кофе'),
+            ('Can you help me?', 'Вы можете мне помочь?'),
+            ('I don\'t understand', 'Я не понимаю'),
+            ('in my opinion', 'по моему мнению'),
+            ('for example', 'например')
         ],
         'texts': [
-            'Last weekend I went to the park. The weather was sunny. We played football. It was great!',
-            'Yesterday I went shopping. I bought a shirt and shoes. I am happy.'
+            ('Weekend', 'Last weekend I went to the park. The weather was sunny and warm. We played football and ate ice cream. It was a great day!', 'На прошлых выходных я ходил в парк. Погода была солнечная и тёплая. Мы играли в футбол и ели мороженое. Это был отличный день!')
+        ],
+        'pics': [
+            'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=400',
+            'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=400',
+            'https://images.unsplash.com/photo-1448630360428-65456659c6df?w=400',
+            'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?w=400',
         ]
     },
     'B1': {
@@ -64,11 +107,18 @@ WORDS = {
             ('knowledge', 'знание'), ('opportunity', 'возможность'), ('patience', 'терпение')
         ],
         'phrases': [
-            ('As a result', 'В результате'), ('In addition', 'Кроме того'),
-            ('On the contrary', 'Наоборот'), ('In conclusion', 'В заключение')
+            ('As a result', 'В результате'),
+            ('In addition', 'Кроме того'),
+            ('On the contrary', 'Наоборот'),
+            ('In conclusion', 'В заключение'),
+            ('To be honest', 'Честно говоря')
         ],
         'texts': [
-            'Technology has changed our lives. People use smartphones for work and entertainment. However, spending too much time on devices can have negative effects on health.'
+            ('Technology', 'Technology has changed our lives. People use smartphones for work and entertainment. However, spending too much time on devices can have negative effects.', 'Технологии изменили нашу жизнь. Люди используют смартфоны для работы и развлечений. Однако слишком много времени с устройствами может иметь негативные последствия.')
+        ],
+        'pics': [
+            'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400',
+            'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=400',
         ]
     },
     'B2': {
@@ -80,11 +130,17 @@ WORDS = {
             ('outcome', 'исход'), ('significant', 'значительный'), ('sufficient', 'достаточный')
         ],
         'phrases': [
-            ('As a matter of fact', 'На самом деле'), ('In the long run', 'В долгосрочной перспективе'),
-            ('On the whole', 'В целом'), ('Without a doubt', 'Без сомнения')
+            ('As a matter of fact', 'На самом деле'),
+            ('In the long run', 'В долгосрочной перспективе'),
+            ('On the whole', 'В целом'),
+            ('Without a doubt', 'Без сомнения')
         ],
         'texts': [
-            'Climate change is one of the most pressing issues of our time. Scientists agree that human activities are responsible for global warming.'
+            ('Climate', 'Climate change is one of the most pressing issues of our time. Scientists agree that human activities are responsible for global warming.', 'Изменение климата — одна из самых острых проблем нашего времени. Учёные согласны, что деятельность человека ответственна за глобальное потепление.')
+        ],
+        'pics': [
+            'https://images.unsplash.com/photo-1507692049790-de58290a4334?w=400',
+            'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400',
         ]
     },
     'C1': {
@@ -96,23 +152,23 @@ WORDS = {
             ('unprecedented', 'беспрецедентный'), ('versatile', 'универсальный')
         ],
         'phrases': [
-            ('At face value', 'На первый взгляд'), ('Bear in mind', 'Иметь в виду'),
-            ('On the brink of', 'На грани'), ('To say the least', 'Мягко говоря')
+            ('At face value', 'На первый взгляд'),
+            ('Bear in mind', 'Иметь в виду'),
+            ('On the brink of', 'На грани'),
+            ('To say the least', 'Мягко говоря')
         ],
         'texts': [
-            'The concept of consciousness has puzzled philosophers for centuries. While neuroscience has made progress, the subjective nature of experience remains elusive.'
+            ('Philosophy', 'The concept of consciousness has puzzled philosophers for centuries. While neuroscience has made progress, the subjective nature of experience remains elusive.', 'Концепция сознания озадачивала философов веками. Хотя нейронаука добилась прогресса, субъективная природа опыта остаётся неуловимой.')
+        ],
+        'pics': [
+            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
+            'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=400',
         ]
     }
 }
 
-# Хранилище уровней пользователей (в памяти)
-user_levels = {}
-
 def get_level(chat_id):
     return user_levels.get(str(chat_id), 'A1')
-
-def set_level(chat_id, level):
-    user_levels[str(chat_id)] = level
 
 def send_message(chat_id, text, reply_markup=None):
     payload = {'chat_id': chat_id, 'text': text, 'parse_mode': 'Markdown'}
@@ -120,104 +176,142 @@ def send_message(chat_id, text, reply_markup=None):
         payload['reply_markup'] = reply_markup
     requests.post(f'{BASE_URL}/sendMessage', json=payload)
 
-def send_photo(chat_id, caption=''):
-    pics = ['https://picsum.photos/400/300?nature', 'https://picsum.photos/400/300?city',
-            'https://picsum.photos/400/300?food', 'https://picsum.photos/400/300?animals']
+def send_photo(chat_id):
+    level = get_level(chat_id)
+    pics = WORDS[level]['pics']
     url = random.choice(pics)
     requests.post(f'{BASE_URL}/sendPhoto', json={
         'chat_id': chat_id, 'photo': url,
-        'caption': caption or 'Опиши, что видишь на картинке!'
+        'caption': f'🖼 Опиши картинку на английском (уровень {level})'
     })
 
 def send_words(chat_id):
     level = get_level(chat_id)
     words = random.sample(WORDS[level]['words'], min(5, len(WORDS[level]['words'])))
-    text = f"📚 *Уровень {level}*\n\n"
-    for w in words:
-        text += f"• {w[0]} — {w[1]} ({w[2]})\n"
+    phrases = random.sample(WORDS[level]['phrases'], min(2, len(WORDS[level]['phrases'])))
     
-    keyboard = {
-        'inline_keyboard': [[{'text': '🔄 Ещё 5 слов', 'callback_data': 'more_words'}]]
-    }
+    text = f"📚 *Уровень {level}*\n\n*Слова:*\n"
+    for w in words:
+        text += f"• {w[0]} — {w[1]}\n"
+    text += "\n*Фразы:*\n"
+    for p in phrases:
+        text += f"💬 {p[0]} — {p[1]}\n"
+    
+    keyboard = {'inline_keyboard': [[{'text': '🔄 Ещё', 'callback_data': 'more_words'}]]}
     send_message(chat_id, text, keyboard)
 
 def send_test(chat_id):
     level = get_level(chat_id)
     all_words = WORDS[level]['words']
     
-    if len(all_words) < 4:
-        send_message(chat_id, 'Мало слов для теста. Смени уровень.')
+    if len(all_words) < 5:
+        send_message(chat_id, 'Мало слов для теста.')
         return
     
-    word = random.choice(all_words)
-    correct = word[1]
+    test_words = random.sample(all_words, 5)
+    user_test[str(chat_id)] = {'words': test_words, 'index': 0, 'correct': 0}
+    send_next_question(chat_id)
+
+def send_next_question(chat_id):
+    test = user_test.get(str(chat_id))
+    if not test or test['index'] >= 5:
+        if test:
+            c = test['correct']
+            send_message(chat_id, f'🏆 Тест завершён!\n✅ {c}/5\n📈 {c*20}%')
+        del user_test[str(chat_id)]
+        return
     
-    options = [correct]
+    word = test['words'][test['index']]
+    level = get_level(chat_id)
+    all_words = WORDS[level]['words']
+    
+    options = [word[1]]
     while len(options) < 4:
         r = random.choice(all_words)[1]
         if r not in options:
             options.append(r)
     random.shuffle(options)
     
-    correct_idx = options.index(correct)
-    
-    keyboard = {
-        'inline_keyboard': [[{'text': opt, 'callback_data': f'test_{correct}_{opt}'}] for opt in options]
-    }
-    send_message(chat_id, f"📝 Как переводится: *{word[0]}*?", keyboard)
+    keyboard = {'inline_keyboard': [
+        [{'text': opt, 'callback_data': f'quiz_{word[1]}_{opt}'}] for opt in options
+    ]}
+    send_message(chat_id, f"📝 ({test['index']+1}/5) *{word[0]}*", keyboard)
 
 def send_text(chat_id):
     level = get_level(chat_id)
-    text = random.choice(WORDS[level]['texts'])
-    send_message(chat_id, f"📖 *Текст (уровень {level}):*\n\n{text}")
-
-def send_level_menu(chat_id):
-    level = get_level(chat_id)
-    desc = {'A1': 'Начинающий', 'A2': 'Элементарный', 'B1': 'Средний',
-            'B2': 'Выше среднего', 'C1': 'Продвинутый'}
+    text_data = random.choice(WORDS[level]['texts'])
+    user_last_text[str(chat_id)] = text_data[2]  # сохраняем перевод
+    user_state[str(chat_id)] = 'waiting_translation'
     
-    keyboard = {
-        'inline_keyboard': [
-            [{'text': f"{l} {desc[l]}{' ✅' if level == l else ''}", 'callback_data': f'level_{l}'}]
-            for l in ['A1', 'A2', 'B1', 'B2', 'C1']
-        ]
-    }
-    send_message(chat_id, f"🎯 Твой уровень: *{level}* — {desc[level]}\nВыбери новый:", keyboard)
+    send_message(chat_id, f"📖 *{text_data[0]} (уровень {level})*\n\n{text_data[1]}\n\n✏️ *Переведи этот текст на русский и отправь ответ!*")
+
+def send_dictionary(chat_id):
+    send_message(chat_id, '📖 *Словарь*\n\nВведи слово или фразу на *английском* — я переведу.\n\nНапример: `apple`, `hello`, `how are you`')
+
+def search_dictionary(chat_id, query):
+    query = query.lower().strip()
+    found = []
+    
+    for level in ['A1', 'A2', 'B1', 'B2', 'C1']:
+        # Ищем в словах
+        for w in WORDS[level]['words']:
+            if query == w[0].lower() or query == w[1].lower():
+                found.append(f'📖 {w[0]} = {w[1]} ({w[2]}) [уровень {level}]')
+        # Ищем во фразах
+        for p in WORDS[level]['phrases']:
+            if query in p[0].lower() or query in p[1].lower():
+                found.append(f'💬 {p[0]} = {p[1]} [уровень {level}]')
+    
+    if found:
+        send_message(chat_id, '\n\n'.join(found[:5]))
+    else:
+        send_message(chat_id, f'❌ "{query}" не найдено.\nПопробуй другое слово.')
 
 def process_callback(callback_query):
-    chat_id = callback_query['message']['chat']['id']
+    chat_id = str(callback_query['message']['chat']['id'])
     data = callback_query['data']
     msg_id = callback_query['message']['message_id']
     
     if data == 'more_words':
         send_words(chat_id)
-    elif data.startswith('test_'):
+    elif data.startswith('quiz_'):
         parts = data.split('_')
         correct = parts[1]
         user_answer = parts[2]
         
-        if user_answer == correct:
+        test = user_test.get(chat_id)
+        if test:
+            if user_answer == correct:
+                test['correct'] += 1
+                text = '✅ Правильно!'
+            else:
+                text = f'❌ Ответ: {correct}'
+            test['index'] += 1
+            
             requests.post(f'{BASE_URL}/editMessageText', json={
-                'chat_id': chat_id, 'message_id': msg_id,
-                'text': '✅ Правильно!'
+                'chat_id': chat_id, 'message_id': msg_id, 'text': text
             })
-        else:
-            requests.post(f'{BASE_URL}/editMessageText', json={
-                'chat_id': chat_id, 'message_id': msg_id,
-                'text': f'❌ Неправильно. Ответ: {correct}'
-            })
+            send_next_question(chat_id)
     elif data.startswith('level_'):
         level = data.replace('level_', '')
-        set_level(chat_id, level)
+        user_levels[chat_id] = level
         requests.post(f'{BASE_URL}/editMessageText', json={
             'chat_id': chat_id, 'message_id': msg_id,
-            'text': f'✅ Уровень изменён на {level}'
+            'text': f'✅ Уровень: {level}'
         })
 
 def process_message(msg):
-    chat_id = msg['chat']['id']
+    chat_id = str(msg['chat']['id'])
     text = msg.get('text', '').strip()
     
+    # Проверка состояния
+    if user_state.get(chat_id) == 'waiting_translation':
+        user_state[chat_id] = None
+        correct = user_last_text.get(chat_id, '')
+        send_message(chat_id, f'📖 Твой перевод:\n{text}\n\n✅ Пример перевода:\n{correct}\n\nСравни и продолжай!')
+        return
+    
+    # Команды
     if text == '/start':
         send_message(chat_id, '🇬🇧 Привет! Я твой тренажёр английского!')
         send_menu(chat_id)
@@ -229,29 +323,38 @@ def process_message(msg):
         send_text(chat_id)
     elif text in ['🖼 Картинки', '/pic']:
         send_photo(chat_id)
+    elif text in ['📖 Словарь', '/dict']:
+        send_dictionary(chat_id)
     elif text in ['🎯 Уровень', '/level']:
         send_level_menu(chat_id)
     elif text == '❓ Помощь':
-        send_message(chat_id, '📚 Слова — изучение\n📝 Тест — проверка\n📖 Текст — чтение\n🖼 Картинки — визуально\n🎯 Уровень — A1-C1')
+        send_message(chat_id, '📚 Слова — изучение\n📝 Тест — 5 вопросов\n📖 Текст — перевод текста\n🖼 Картинки — описание\n📖 Словарь — поиск слов\n🎯 Уровень — A1-C1')
     else:
-        # Проверяем слово в словаре
-        level = get_level(chat_id)
-        for w in WORDS[level]['words']:
-            if text.lower() == w[0].lower():
-                send_message(chat_id, f'📖 {w[0]} = {w[1]} ({w[2]})')
-                return
-        send_message(chat_id, 'Используй меню или напиши слово на английском.')
+        # Поиск в словаре
+        search_dictionary(chat_id, text)
 
 def send_menu(chat_id):
     keyboard = {
         'keyboard': [
             [{'text': '📚 Слова'}, {'text': '📝 Тест'}],
             [{'text': '📖 Текст'}, {'text': '🖼 Картинки'}],
-            [{'text': '🎯 Уровень'}, {'text': '❓ Помощь'}]
+            [{'text': '📖 Словарь'}, {'text': '🎯 Уровень'}],
+            [{'text': '❓ Помощь'}]
         ],
         'resize_keyboard': True
     }
     send_message(chat_id, '📍 Меню:', keyboard)
+
+def send_level_menu(chat_id):
+    level = get_level(chat_id)
+    desc = {'A1': 'Начинающий', 'A2': 'Элементарный', 'B1': 'Средний',
+            'B2': 'Выше среднего', 'C1': 'Продвинутый'}
+    
+    keyboard = {'inline_keyboard': [
+        [{'text': f"{l} {desc[l]}{' ✅' if level == l else ''}", 'callback_data': f'level_{l}'}]
+        for l in ['A1', 'A2', 'B1', 'B2', 'C1']
+    ]}
+    send_message(chat_id, f"🎯 Твой уровень: *{level}* — {desc[level]}", keyboard)
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -265,6 +368,3 @@ def webhook():
 @app.route('/')
 def home():
     return 'English Bot is running!'
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
