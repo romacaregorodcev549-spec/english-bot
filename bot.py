@@ -580,6 +580,7 @@ def process_callback(callback_query):
             if user_answer == correct:
                 test['correct'] += 1
                 text = '✅ Правильно!'
+                add_points(chat_id, 2)
             else:
                 text = f'❌ Ответ: {correct}'
             test['index'] += 1
@@ -595,16 +596,46 @@ def process_callback(callback_query):
             'chat_id': chat_id, 'message_id': msg_id,
             'text': f'✅ Уровень: {level}'
         })
+    elif data.startswith('grammar_'):
+        topic = data.replace('grammar_', '')
+        text = GRAMMAR.get(topic, 'Тема не найдена')
+        requests.post(f'{BASE_URL}/editMessageText', json={
+            'chat_id': chat_id, 'message_id': msg_id,
+            'text': f'📝 *{topic}*\n\n{text}'
+        })
+    elif data.startswith('review_show_'):
+        card = user_review_cards.get(chat_id)
+        if card:
+            en, ru = card[0], card[1]
+            add_points(chat_id, 1)
+            requests.post(f'{BASE_URL}/editMessageText', json={
+                'chat_id': chat_id, 'message_id': msg_id,
+                'text': f'🔁 {en} = *{ru}*\n\n+1 очко!'
+            })
 
 def process_message(msg):
     chat_id = str(msg['chat']['id'])
     text = msg.get('text', '').strip()
     
+    # Инициализация пользователя
+    init_user(chat_id)
+    
     # Проверка состояния
     if user_state.get(chat_id) == 'waiting_translation':
         user_state[chat_id] = None
         correct = user_last_text.get(chat_id, '')
-        send_message(chat_id, f'📖 Твой перевод:\n{text}\n\n✅ Пример перевода:\n{correct}\n\nСравни и продолжай!')
+        add_points(chat_id, 5)
+        send_message(chat_id, f'📖 Твой перевод:\n{text}\n\n✅ Пример:\n{correct}\n\n+5 очков!')
+        return
+    
+    if user_state.get(chat_id) == 'waiting_dictation':
+        user_state[chat_id] = None
+        correct = user_last_text.get(chat_id, '')
+        if text.lower().strip() == correct.lower().strip():
+            add_points(chat_id, 10)
+            send_message(chat_id, f'✅ Правильно! +10 очков!')
+        else:
+            send_message(chat_id, f'❌ Правильный ответ: {correct}')
         return
     
     # Команды
@@ -623,11 +654,135 @@ def process_message(msg):
         send_dictionary(chat_id)
     elif text in ['🎯 Уровень', '/level']:
         send_level_menu(chat_id)
+    elif text in ['🎮 Прогресс', '/stats']:
+        send_stats(chat_id)
+    elif text in ['📝 Грамматика', '/grammar']:
+        send_grammar(chat_id)
+    elif text in ['🎧 Диктант', '/dictation']:
+        send_dictation(chat_id)
+    elif text in ['🔁 Повторение', '/repeat']:
+        send_review(chat_id)
+    elif text in ['🏆 Достижения', '/achievements']:
+        send_achievements(chat_id)
     elif text == '❓ Помощь':
-        send_message(chat_id, '📚 Слова — изучение\n📝 Тест — 5 вопросов\n📖 Текст — перевод текста\n🖼 Картинки — описание\n📖 Словарь — поиск слов\n🎯 Уровень — A1-C1')
+        send_message(chat_id, '📚 Слова — изучение\n📝 Тест — 5 вопросов\n📖 Текст — перевод\n🖼 Картинки — описание\n📖 Словарь — поиск\n🎯 Уровень — A1-C1\n🎮 Прогресс — очки\n📝 Грамматика — правила\n🎧 Диктант — аудио\n🔁 Повторение — карточки')
     else:
-        # Поиск в словаре
         search_dictionary(chat_id, text)
+
+# ===== ГЕЙМИФИКАЦИЯ =====
+user_points = {}
+user_streak = {}
+user_last_activity = {}
+user_achievements = {}
+
+def init_user(chat_id):
+    if chat_id not in user_points:
+        user_points[chat_id] = 0
+        user_streak[chat_id] = 0
+        user_achievements[chat_id] = []
+
+def add_points(chat_id, points):
+    init_user(chat_id)
+    user_points[chat_id] += points
+    check_achievements(chat_id)
+
+def check_achievements(chat_id):
+    pts = user_points[chat_id]
+    ach = user_achievements[chat_id]
+    
+    if pts >= 50 and '🎓 Ученик' not in ach:
+        ach.append('🎓 Ученик')
+        send_message(chat_id, '🏆 Достижение: Ученик! (50 очков)')
+    if pts >= 100 and '📚 Знаток' not in ach:
+        ach.append('📚 Знаток')
+        send_message(chat_id, '🏆 Достижение: Знаток! (100 очков)')
+    if pts >= 250 and '🧠 Эксперт' not in ach:
+        ach.append('🧠 Эксперт')
+        send_message(chat_id, '🏆 Достижение: Эксперт! (250 очков)')
+    if pts >= 500 and '👑 Магистр' not in ach:
+        ach.append('👑 Магистр')
+        send_message(chat_id, '🏆 Достижение: Магистр! (500 очков)')
+
+def send_stats(chat_id):
+    init_user(chat_id)
+    pts = user_points[chat_id]
+    ach = user_achievements[chat_id]
+    lvl = get_level(chat_id)
+    
+    text = f'🎮 *Прогресс*\n\n⭐ Очки: {pts}\n🏆 Достижений: {len(ach)}\n📚 Уровень: {lvl}'
+    if ach:
+        text += '\n\n🏅 ' + ' | '.join(ach)
+    send_message(chat_id, text)
+
+def send_achievements(chat_id):
+    init_user(chat_id)
+    ach = user_achievements[chat_id]
+    if ach:
+        send_message(chat_id, '🏆 *Достижения:*\n\n' + '\n'.join(ach))
+    else:
+        send_message(chat_id, 'Пока нет достижений. Набирай очки!')
+
+# ===== ГРАММАТИКА =====
+GRAMMAR = {
+    'Present Simple': 'Используется для регулярных действий.\nI work, He works.\nВспомогательный: do/does.\nОтрицание: I don\'t work.',
+    'Present Continuous': 'Действие прямо сейчас.\nI am working.\nФормула: am/is/are + V-ing.',
+    'Past Simple': 'Действие в прошлом.\nI worked, I went.\nВспомогательный: did.\nОтрицание: I didn\'t go.',
+    'Future Simple': 'Действие в будущем.\nI will work.\nОтрицание: I won\'t work.',
+    'Articles': 'a/an — неопределённый.\nthe — определённый.\nNo article — общее понятие.',
+    'Modal Verbs': 'can — могу, должен.\nshould — следует.\nmust — обязан.\nmay — можно.',
+}
+
+def send_grammar(chat_id):
+    topics = list(GRAMMAR.keys())
+    keyboard = {'inline_keyboard': [
+        [{'text': t, 'callback_data': f'grammar_{t}'}] for t in topics
+    ]}
+    send_message(chat_id, '📝 *Грамматика*\nВыбери тему:', keyboard)
+
+# ===== ДИКТАНТ =====
+def send_dictation(chat_id):
+    level = get_level(chat_id)
+    words = WORDS[level]['words'] + WORDS[level]['phrases']
+    if not words:
+        send_message(chat_id, 'Нет слов для диктанта.')
+        return
+    
+    item = random.choice(words)
+    en = item[0]
+    ru = item[1] if len(item) > 1 else ''
+    
+    user_last_text[chat_id] = en
+    user_state[chat_id] = 'waiting_dictation'
+    
+    # Отправляем текст голосом
+    tts_url = f'https://api.telegram.org/bot{TOKEN}/sendVoice'
+    # Используем текст без голоса (ограничение API), просто пишем
+    send_message(chat_id, f'🎧 *Диктант*\n\nПрослушай и напиши на английском:\n\n_{en}_\n\n(Представь что это аудио 😉)')
+
+# ===== ИНТЕРВАЛЬНЫЕ ПОВТОРЕНИЯ =====
+user_review_cards = {}
+
+def send_review(chat_id):
+    level = get_level(chat_id)
+    words = WORDS[level]['words']
+    if len(words) < 4:
+        send_message(chat_id, 'Мало слов для повторения.')
+        return
+    
+    card = random.choice(words)
+    user_review_cards[chat_id] = card
+    en, ru = card[0], card[1]
+    
+    keyboard = {'inline_keyboard': [[
+        {'text': 'Показать перевод', 'callback_data': f'review_show_{chat_id}'}
+    ]]}
+    send_message(chat_id, f'🔁 *Повторение*\n\nСлово: *{en}*\n\nВспомни перевод и нажми кнопку.', keyboard)
+
+# ===== НАПОМИНАНИЯ =====
+def check_reminders():
+    """Вызывается раз в час через внешний сервис (cron-job.org)"""
+    for chat_id in user_points.keys():
+        send_message(chat_id, '⏰ Не забудь позаниматься английским! 📚')
 
 def send_menu(chat_id):
     keyboard = {
@@ -635,7 +790,9 @@ def send_menu(chat_id):
             [{'text': '📚 Слова'}, {'text': '📝 Тест'}],
             [{'text': '📖 Текст'}, {'text': '🖼 Картинки'}],
             [{'text': '📖 Словарь'}, {'text': '🎯 Уровень'}],
-            [{'text': '❓ Помощь'}]
+            [{'text': '🎮 Прогресс'}, {'text': '📝 Грамматика'}],
+            [{'text': '🎧 Диктант'}, {'text': '🔁 Повторение'}],
+            [{'text': '🏆 Достижения'}, {'text': '❓ Помощь'}]
         ],
         'resize_keyboard': True
     }
