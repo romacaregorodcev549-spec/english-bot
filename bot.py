@@ -872,7 +872,12 @@ def process_level_test_answer(chat_id, data, msg_id):
     else:
         text = f'❌ {correct}'
     test['index'] += 1
-    requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': text})
+    
+    # Удаляем сообщение с вопросом
+    requests.post(f'{BASE_URL}/deleteMessage', json={'chat_id': chat_id, 'message_id': msg_id})
+    
+    # Отправляем результат и следующий вопрос
+    send_message(chat_id, text)
     send_level_question(chat_id)
 @app.route('/webhook', methods=['POST'])
 def webhook():
