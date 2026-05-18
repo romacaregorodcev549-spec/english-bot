@@ -577,7 +577,6 @@ def process_callback(callback_query):
         parts = data.split('_')
         correct = parts[1]
         user_answer = parts[2]
-        
         test = user_test.get(chat_id)
         if test:
             if user_answer == correct:
@@ -587,35 +586,31 @@ def process_callback(callback_query):
             else:
                 text = f'❌ Ответ: {correct}'
             test['index'] += 1
-            
-            requests.post(f'{BASE_URL}/editMessageText', json={
-                'chat_id': chat_id, 'message_id': msg_id, 'text': text
-            })
+            requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': text})
             send_next_question(chat_id)
-    elif data.startswith('level_'):
-        level = data.replace('level_', '')
-        user_levels[chat_id] = level
-        requests.post(f'{BASE_URL}/editMessageText', json={
-            'chat_id': chat_id, 'message_id': msg_id,
-            'text': f'✅ Уровень: {level}'
-        })
+    elif data.startswith('setlevel_'):
+        lvl = data.replace('setlevel_', '')
+        if lvl in LEVEL_PASSED.get(chat_id, ['A1']):
+            user_levels[chat_id] = lvl
+        requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': f'✅ Уровень: {lvl}'})
+    elif data.startswith('trylevel_'):
+        lvl = data.replace('trylevel_', '')
+        send_level_test(chat_id, lvl)
+        requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': f'Начинаю тест на {lvl}...'})
+    elif data.startswith('leveltest_'):
+        process_level_test_answer(chat_id, data, msg_id)
+    elif data == 'locked':
+        requests.post(f'{BASE_URL}/answerCallbackQuery', json={'callback_query_id': callback_query['id'], 'text': '🔒 Уровень закрыт!', 'show_alert': True})
     elif data.startswith('grammar_'):
         topic = data.replace('grammar_', '')
         text = GRAMMAR.get(topic, 'Тема не найдена')
-        requests.post(f'{BASE_URL}/editMessageText', json={
-            'chat_id': chat_id, 'message_id': msg_id,
-            'text': f'📝 *{topic}*\n\n{text}'
-        })
+        requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': f'📝 *{topic}*\n\n{text}'})
     elif data.startswith('review_show_'):
         card = user_review_cards.get(chat_id)
         if card:
             en, ru = card[0], card[1]
             add_points(chat_id, 1)
-            requests.post(f'{BASE_URL}/editMessageText', json={
-                'chat_id': chat_id, 'message_id': msg_id,
-                'text': f'🔁 {en} = *{ru}*\n\n+1 очко!'
-            })
-
+            requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': f'🔁 {en} = *{ru}*\n\n+1 очко!'})
 def process_message(msg):
     chat_id = str(msg['chat']['id'])
     text = msg.get('text', '').strip()
