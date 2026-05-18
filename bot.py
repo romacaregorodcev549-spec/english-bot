@@ -822,7 +822,9 @@ LEVEL_TESTS = {}
 LEVEL_PASSED = {}
 
 def send_level_test(chat_id, level):
-    words = WORDS[level]['words']
+    # Тест по словам ТЕКУЩЕГО уровня, чтобы перейти на следующий
+    current_level = get_level(chat_id)
+    words = WORDS[current_level]['words']
     if len(words) < 10:
         send_message(chat_id, 'Недостаточно слов для теста.')
         return
