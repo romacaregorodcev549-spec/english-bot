@@ -760,7 +760,7 @@ def send_dictation(chat_id):
         if response.status_code == 200:
             # Отправляем как голосовое
             files = {'voice': ('audio.mp3', response.content, 'audio/mpeg')}
-            requests.post(f'{BASE_URL}/sendVoice', files=files, data={'chat_id': chat_id, 'caption': '🎧 Напиши перевод!'})
+            requests.post(f'{BASE_URL}/sendVoice', files=files, data={'chat_id': chat_id, 'caption': '🎧 Напиши слово на английском'})
         else:
             send_message(chat_id, f'🎧 *Диктант*\nНапиши: _{en}_')
     except:
