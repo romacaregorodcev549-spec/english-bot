@@ -586,8 +586,9 @@ def process_callback(callback_query):
             else:
                 text = f'❌ Ответ: {correct}'
             test['index'] += 1
-                      requests.post(f'{BASE_URL}/deleteMessage', json={'chat_id': chat_id, 'message_id': msg_id})
+            requests.post(f'{BASE_URL}/deleteMessage', json={'chat_id': chat_id, 'message_id': msg_id})
             send_message(chat_id, text)
+            send_next_question(chat_id)
     elif data.startswith('setlevel_'):
         lvl = data.replace('setlevel_', '')
         if lvl in LEVEL_PASSED.get(chat_id, ['A1']):
@@ -604,14 +605,15 @@ def process_callback(callback_query):
     elif data.startswith('grammar_'):
         topic = data.replace('grammar_', '')
         text = GRAMMAR.get(topic, 'Тема не найдена')
-                    requests.post(f'{BASE_URL}/deleteMessage', json={'chat_id': chat_id, 'message_id': msg_id})
-            send_message(chat_id, text)
+        requests.post(f'{BASE_URL}/deleteMessage', json={'chat_id': chat_id, 'message_id': msg_id})
+        send_message(chat_id, f'📝 *{topic}*\n\n{text}')
     elif data.startswith('review_show_'):
         card = user_review_cards.get(chat_id)
         if card:
             en, ru = card[0], card[1]
             add_points(chat_id, 1)
-            requests.post(f'{BASE_URL}/editMessageText', json={'chat_id': chat_id, 'message_id': msg_id, 'text': f'🔁 {en} = *{ru}*\n\n+1 очко!'})
+            requests.post(f'{BASE_URL}/deleteMessage', json={'chat_id': chat_id, 'message_id': msg_id})
+            send_message(chat_id, f'🔁 {en} = *{ru}*\n\n+1 очко!')
 def process_message(msg):
     chat_id = str(msg['chat']['id'])
     text = msg.get('text', '').strip()
