@@ -666,7 +666,7 @@ def process_message(msg):
     elif text in ['📖 Текст', '/text']:
         send_text(chat_id)
     elif text in ['🖼 Карточки', '/pic']:
-    send_photo(chat_id)
+        send_photo(chat_id)
     elif text in ['📖 Словарь', '/dict']:
         send_dictionary(chat_id)
     elif text in ['🎯 Уровень', '/level']:
