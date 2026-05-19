@@ -824,7 +824,7 @@ def process_message(msg):
         send_review(chat_id)
     elif text in ['🏆 Достижения', '/achievements']:
         send_achievements(chat_id)
-    elif text in ['🎮 Игры', '/game']:
+    elif text.strip().lower() in ['🎮 игры', '/game']:
         send_game_menu(chat_id)
     elif text == '❓ Помощь':
         send_message(chat_id, '📚 Слова\n📝 Тест\n📖 Текст\n🖼 Карточки\n📖 Словарь\n🎯 Уровень\n🎮 Прогресс\n📝 Грамматика\n🎧 Диктант\n🔁 Повторение\n🎮 Игры')
