@@ -1169,7 +1169,7 @@ def send_dictation(chat_id):
 
 # ===== ИНТЕРВАЛЬНЫЕ ПОВТОРЕНИЯ =====
 user_review_cards = {}
-
+user_game = {}
 def send_review(chat_id):
     level = get_level(chat_id)
     words = WORDS[level]['words']
