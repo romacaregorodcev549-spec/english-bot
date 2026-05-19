@@ -779,16 +779,16 @@ def process_message(msg):
             return
     
     # Проверка состояния
+    # Проверка состояния
     if user_state.get(chat_id) == 'waiting_translation':
         user_state[chat_id] = None
         correct = user_last_text.get(chat_id, '')
-        # Проверяем, что это не команда
-    if not text.startswith('/') and text not in ['📚 Слова','📝 Тест','📖 Текст','🖼 Карточки','📖 Словарь','🎯 Уровень','🎮 Прогресс','📝 Грамматика','🎧 Диктант','🔁 Повторение','🏆 Достижения','🎮 Игры','❓ Помощь']:
+        if not text.startswith('/') and text not in ['📚 Слова','📝 Тест','📖 Текст','🖼 Карточки','📖 Словарь','🎯 Уровень','🎮 Прогресс','📝 Грамматика','🎧 Диктант','🔁 Повторение','🏆 Достижения','🎮 Игры','❓ Помощь']:
             add_points(chat_id, 5)
             send_message(chat_id, f'📖 Твой перевод:\n{text}\n\n✅ Пример:\n{correct}\n\n+5 очков!')
             return
     
-     if user_state.get(chat_id) == 'waiting_dictation':
+    if user_state.get(chat_id) == 'waiting_dictation':
         user_state[chat_id] = None
         correct = user_last_text.get(chat_id, '')
         if text.lower().strip() == correct.lower().strip():
@@ -1284,9 +1284,7 @@ def process_level_test_answer(chat_id, data, msg_id):
     # Отправляем результат и следующий вопрос
     send_message(chat_id, text)
     send_level_question(chat_id)
-    # ===== ИГРЫ =====
-user_game = {}
-
+  # ===== ИГРЫ =====
 def send_game_menu(chat_id):
     keyboard = {'inline_keyboard': [
         [{'text': '🎯 Угадай слово', 'callback_data': 'game_guess'}],
@@ -1336,6 +1334,7 @@ def morning():
         except:
             pass
     return 'ok', 200
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
