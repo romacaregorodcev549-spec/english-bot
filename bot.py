@@ -958,6 +958,12 @@ GRAMMAR = {
         'across — через (поверхность): across the street'
     ),
 }
+def send_grammar(chat_id):
+    topics = list(GRAMMAR.keys())
+    keyboard = {'inline_keyboard': [
+        [{'text': t, 'callback_data': f'grammar_{t}'}] for t in topics
+    ]}
+    send_message(chat_id, '📝 *Грамматика*\nВыбери тему:', keyboard)
 
 # ===== ДИКТАНТ =====
 
