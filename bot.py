@@ -779,12 +779,14 @@ def process_message(msg):
             return
     
     # Проверка состояния
-    if user_state.get(chat_id) == 'waiting_translation':
+       if user_state.get(chat_id) == 'waiting_translation':
         user_state[chat_id] = None
         correct = user_last_text.get(chat_id, '')
-        add_points(chat_id, 5)
-        send_message(chat_id, f'📖 Твой перевод:\n{text}\n\n✅ Пример:\n{correct}\n\n+5 очков!')
-        return
+        # Проверяем, что это не команда
+        if not text.startswith('/') and text not in ['📚 Слова','📝 Тест','📖 Текст','🖼 Карточки','📖 Словарь','🎯 Уровень','🎮 Прогресс','📝 Грамматика','🎧 Диктант','🔁 Повторение','🏆 Достижения','🎮 Игры','❓ Помощь']:
+            add_points(chat_id, 5)
+            send_message(chat_id, f'📖 Твой перевод:\n{text}\n\n✅ Пример:\n{correct}\n\n+5 очков!')
+            return
     
     if user_state.get(chat_id) == 'waiting_dictation':
         user_state[chat_id] = None
