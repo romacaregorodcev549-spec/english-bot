@@ -791,7 +791,7 @@ def process_message(msg):
     if user_state.get(chat_id) == 'waiting_dictation':
         user_state[chat_id] = None
         correct = user_last_text.get(chat_id, '')
-     if text.lower().strip() == correct.lower().strip():
+    if text.lower().strip() == correct.lower().strip():
             add_points(chat_id, 10)
             send_message(chat_id, f'✅ Правильно! +10 очков!')
         else:
