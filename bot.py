@@ -658,6 +658,16 @@ def process_callback(callback_query):
     data = callback_query['data']
     msg_id = callback_query['message']['message_id']
     
+    if data == 'game_guess':
+        start_guess_game(chat_id)
+        return
+    if data == 'game_hangman':
+        start_hangman(chat_id)
+        return
+    if data == 'game_anagram':
+        start_anagram(chat_id)
+        return
+    
     if data == 'more_words':
         send_words(chat_id)
     elif data.startswith('quiz_'):
@@ -705,8 +715,68 @@ def process_message(msg):
     chat_id = str(msg['chat']['id'])
     text = msg.get('text', '').strip()
     
-    # Инициализация пользователя
     init_user(chat_id)
+    
+    # Проверка активной игры
+    game = user_game.get(chat_id)
+    if game:
+        if game['game'] == 'guess':
+            if text.lower().strip() == game['word'][0].lower():
+                del user_game[chat_id]
+                add_points(chat_id, 10)
+                send_message(chat_id, f'✅ Правильно! *{game["word"][0]}* = {game["word"][1]}\n+10 очков!')
+            else:
+                game['attempts'] += 1
+                if game['attempts'] >= game['max_attempts']:
+                    del user_game[chat_id]
+                    send_message(chat_id, f'😔 Не угадал. Ответ: *{game["word"][0]}*')
+                else:
+                    send_message(chat_id, f'❌ Неправильно. Осталось попыток: {game["max_attempts"] - game["attempts"]}')
+            return
+        
+        if game['game'] == 'hangman':
+            letter = text.lower().strip()
+            if len(letter) != 1:
+                send_message(chat_id, 'Введи одну букву!')
+                return
+            if letter in game['used']:
+                send_message(chat_id, 'Эту букву уже называли!')
+                return
+            game['used'].append(letter)
+            if letter in game['word']:
+                hidden = list(game['hidden'].replace(' ', ''))
+                for i, l in enumerate(game['word']):
+                    if l == letter:
+                        hidden[i] = letter
+                game['hidden'] = ' '.join(hidden)
+                if '_' not in game['hidden']:
+                    del user_game[chat_id]
+                    add_points(chat_id, 15)
+                    send_message(chat_id, f'🏆 Ура! Слово: *{game["word"]}*!\n+15 очков!')
+                    return
+                send_message(chat_id, f'✅ Есть такая буква!\n\n`{game["hidden"]}`')
+            else:
+                game['wrong'] += 1
+                if game['wrong'] >= game['max_wrong']:
+                    del user_game[chat_id]
+                    send_message(chat_id, f'💀 Ты проиграл. Слово: *{game["word"]}*')
+                    return
+                send_message(chat_id, f'❌ Нет такой буквы. Ошибок: {game["wrong"]}/{game["max_wrong"]}\n\n`{game["hidden"]}`')
+            return
+        
+        if game['game'] == 'anagram':
+            if text.lower().strip() == game['word'].lower():
+                del user_game[chat_id]
+                add_points(chat_id, 10)
+                send_message(chat_id, f'✅ Правильно! *{game["word"]}*\n+10 очков!')
+            else:
+                game['attempts'] += 1
+                if game['attempts'] >= 3:
+                    del user_game[chat_id]
+                    send_message(chat_id, f'😔 Не угадал. Ответ: *{game["word"]}*')
+                else:
+                    send_message(chat_id, f'❌ Неправильно. Попробуй ещё!')
+            return
     
     # Проверка состояния
     if user_state.get(chat_id) == 'waiting_translation':
@@ -725,6 +795,39 @@ def process_message(msg):
         else:
             send_message(chat_id, f'❌ Правильный ответ: {correct}')
         return
+    
+    # Команды
+    if text == '/start':
+        send_message(chat_id, '🇬🇧 Привет! Я твой тренажёр английского!')
+        send_menu(chat_id)
+    elif text in ['📚 Слова', '/words']:
+        send_words(chat_id)
+    elif text in ['📝 Тест', '/test']:
+        send_test(chat_id)
+    elif text in ['📖 Текст', '/text']:
+        send_text(chat_id)
+    elif text in ['🖼 Карточки', '/pic']:
+        send_photo(chat_id)
+    elif text in ['📖 Словарь', '/dict']:
+        send_dictionary(chat_id)
+    elif text in ['🎯 Уровень', '/level']:
+        send_level_menu(chat_id)
+    elif text in ['🎮 Прогресс', '/stats']:
+        send_stats(chat_id)
+    elif text in ['📝 Грамматика', '/grammar']:
+        send_grammar(chat_id)
+    elif text in ['🎧 Диктант', '/dictation']:
+        send_dictation(chat_id)
+    elif text in ['🔁 Повторение', '/repeat']:
+        send_review(chat_id)
+    elif text in ['🏆 Достижения', '/achievements']:
+        send_achievements(chat_id)
+    elif text in ['🎮 Игры', '/game']:
+        send_game_menu(chat_id)
+    elif text == '❓ Помощь':
+        send_message(chat_id, '📚 Слова\n📝 Тест\n📖 Текст\n🖼 Карточки\n📖 Словарь\n🎯 Уровень\n🎮 Прогресс\n📝 Грамматика\n🎧 Диктант\n🔁 Повторение\n🎮 Игры')
+    else:
+        search_dictionary(chat_id, text)
     
     # Команды
     if text == '/start':
@@ -1108,7 +1211,8 @@ def send_menu(chat_id):
             [{'text': '📖 Словарь'}, {'text': '🎯 Уровень'}],
             [{'text': '🎮 Прогресс'}, {'text': '📝 Грамматика'}],
             [{'text': '🎧 Диктант'}, {'text': '🔁 Повторение'}],
-            [{'text': '🏆 Достижения'}, {'text': '❓ Помощь'}]
+            [{'text': '🏆 Достижения'}, {'text': '🎮 Игры'}],
+            [{'text': '❓ Помощь'}]
         ],
         'resize_keyboard': True
     }
@@ -1178,6 +1282,58 @@ def process_level_test_answer(chat_id, data, msg_id):
     # Отправляем результат и следующий вопрос
     send_message(chat_id, text)
     send_level_question(chat_id)
+    # ===== ИГРЫ =====
+user_game = {}
+
+def send_game_menu(chat_id):
+    keyboard = {'inline_keyboard': [
+        [{'text': '🎯 Угадай слово', 'callback_data': 'game_guess'}],
+        [{'text': '💀 Виселица', 'callback_data': 'game_hangman'}],
+        [{'text': '🔤 Анаграмма', 'callback_data': 'game_anagram'}]
+    ]}
+    send_message(chat_id, '🎮 *Игры*\nВыбери игру:', keyboard)
+
+def start_guess_game(chat_id):
+    level = get_level(chat_id)
+    words = WORDS[level]['words']
+    word = random.choice(words)
+    user_game[chat_id] = {'game': 'guess', 'word': word, 'attempts': 0, 'max_attempts': 5}
+    send_message(chat_id, f'🎯 *Угадай слово!*\n\nПеревод: *{word[1]}*\n\nНапиши слово на английском. 5 попыток!')
+
+def start_hangman(chat_id):
+    level = get_level(chat_id)
+    words = WORDS[level]['words']
+    word = random.choice(words)[0]
+    hidden = '_ ' * len(word)
+    user_game[chat_id] = {'game': 'hangman', 'word': word, 'hidden': hidden.strip(), 'wrong': 0, 'max_wrong': 6, 'used': []}
+    send_message(chat_id, f'💀 *Виселица!*\n\nСлово: `{hidden.strip()}`\n\nВведи букву.')
+
+def start_anagram(chat_id):
+    level = get_level(chat_id)
+    words = WORDS[level]['words']
+    word = random.choice(words)[0]
+    shuffled = ''.join(random.sample(word, len(word)))
+    user_game[chat_id] = {'game': 'anagram', 'word': word, 'shuffled': shuffled, 'attempts': 0}
+    send_message(chat_id, f'🔤 *Анаграмма!*\n\nБуквы: *{shuffled}*\n\nСоставь слово.')
+
+# ===== УТРЕННЯЯ СВОДКА =====
+def send_morning_digest(chat_id):
+    level = get_level(chat_id)
+    words = random.sample(WORDS[level]['words'], min(3, len(WORDS[level]['words'])))
+    text = f'🌅 *Доброе утро!*\n\n📚 Слова на сегодня:\n'
+    for w in words:
+        text += f'• {w[0]} — {w[1]}\n'
+    text += f'\n📝 Пройди тест: /test'
+    send_message(chat_id, text)
+
+@app.route('/morning')
+def morning():
+    for chat_id in list(user_levels.keys()):
+        try:
+            send_morning_digest(chat_id)
+        except:
+            pass
+    return 'ok', 200
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
